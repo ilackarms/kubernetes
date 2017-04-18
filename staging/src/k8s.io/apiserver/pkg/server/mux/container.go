@@ -51,6 +51,7 @@ func NewAPIContainer(mux *http.ServeMux, s runtime.NegotiatedSerializer, default
 	c.Container.ServiceErrorHandler(func(serviceErr restful.ServiceError, request *restful.Request, response *restful.Response) {
 		serviceErrorHandler(s, serviceErr, request, response)
 	})
+	c.Container.EnableContentEncoding(true)
 
 	// register the defaultHandler for everything.  This will allow an unhandled request to fall through to another handler instead of
 	// ending up with a forced 404
