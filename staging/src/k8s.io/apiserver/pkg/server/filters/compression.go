@@ -1,5 +1,5 @@
 /*
-Copyright 2015 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -101,7 +101,6 @@ func NewCompressionResponseWriter(w http.ResponseWriter, encoding string) http.R
 	}
 }
 
-// compressionResponseWriter implements http.Responsewriter Interface
 var _ http.ResponseWriter = &compressionResponseWriter{}
 
 func (c *compressionResponseWriter) Header() http.Header {
@@ -110,8 +109,8 @@ func (c *compressionResponseWriter) Header() http.Header {
 
 // compress data according to compression method
 func (c *compressionResponseWriter) Write(p []byte) (int, error) {
-	if c.isCompressorClosed() {
-		return -1, errors.New("Compressing error: tried to write data using closed compressor")
+	if c.compressorClosed() {
+		return -1, errors.New("compressing error: tried to write data using closed compressor")
 	}
 	c.Header().Set(headerContentEncoding, c.encoding)
 	return c.compressor.Write(p)
@@ -128,7 +127,7 @@ func (c *compressionResponseWriter) CloseNotify() <-chan bool {
 
 // Close the underlying compressor
 func (c *compressionResponseWriter) Close() error {
-	if c.isCompressorClosed() {
+	if c.compressorClosed() {
 		return errors.New("Compressing error: tried to close already closed compressor")
 	}
 
@@ -138,20 +137,23 @@ func (c *compressionResponseWriter) Close() error {
 }
 
 func (c *compressionResponseWriter) Flush() {
+	if c.compressorClosed() {
+		return
+	}
 	c.compressor.Flush()
 }
 
-func (c *compressionResponseWriter) isCompressorClosed() bool {
+func (c *compressionResponseWriter) compressorClosed() bool {
 	return nil == c.compressor
 }
 
 // RestfulWithCompression wraps WithCompression to be compatible with go-restful
-func RestfulWithCompression(function restful.RouteFunction) restful.RouteFunction {
+func RestfulWithCompression(f restful.RouteFunction) restful.RouteFunction {
 	return restful.RouteFunction(func(request *restful.Request, response *restful.Response) {
 		handler := WithCompression(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			response.ResponseWriter = w
 			request.Request = req
-			function(request, response)
+			f(request, response)
 		}))
 		handler.ServeHTTP(response.ResponseWriter, request.Request)
 	})
