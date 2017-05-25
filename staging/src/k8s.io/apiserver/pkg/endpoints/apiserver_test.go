@@ -1166,7 +1166,7 @@ func TestListCompresion(t *testing.T) {
 			namespace:   testCase.namespace,
 			expectedSet: testCase.selfLink,
 		}
-		var handler = handleInternal(storage, admissionControl, selfLinker)
+		var handler = handleInternal(storage, admissionControl, selfLinker, nil)
 		server := httptest.NewServer(handler)
 		defer server.Close()
 

@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 func TestCompression(t *testing.T) {
@@ -40,6 +41,7 @@ func TestCompression(t *testing.T) {
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				w.Write([]byte("1234"))
 			}),
+			request.NewRequestContextMapper(),
 		)
 		server := httptest.NewServer(handler)
 		defer server.Close()

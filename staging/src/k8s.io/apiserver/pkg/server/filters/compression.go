@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
+	"k8s.io/apiserver/pkg/endpoints/request"
 )
 
 // Compressor is an interface to compression writers
@@ -42,9 +43,9 @@ const (
 )
 
 // WithCompression wraps an http.Handler with the Compression Handler
-func WithCompression(handler http.Handler) http.Handler {
+func WithCompression(handler http.Handler, contextMapper request.RequestContextMapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		wantsCompression, encoding := wantsCompressedResponse(req)
+		wantsCompression, encoding := wantsCompressedResponse(req, contextMapper)
 		if wantsCompression {
 			compressionWriter := NewCompressionResponseWriter(w, encoding)
 			compressionWriter.Header().Set("Content-Encoding", encoding)
@@ -58,12 +59,25 @@ func WithCompression(handler http.Handler) http.Handler {
 }
 
 // WantsCompressedResponse reads the Accept-Encoding header to see if and which encoding is requested.
-func wantsCompressedResponse(httpRequest *http.Request) (bool, string) {
+func wantsCompressedResponse(req *http.Request, contextMapper request.RequestContextMapper) (bool, string) {
 	// don't compress watches
-	if watch := httpRequest.URL.Query().Get("watch"); watch == "true" || watch == "1" {
+	var watch string
+	ctx, ok := contextMapper.Get(req)
+	if ok {
+		w, ok := ctx.Value("watch").(string)
+		if ok {
+			watch = w
+		} else {
+			watch = req.URL.Query().Get("watch")
+		}
+	} else {
+		watch = req.URL.Query().Get("watch")
+	}
+	if watch == "true" || watch == "1" {
 		return false, ""
 	}
-	header := httpRequest.Header.Get(headerAcceptEncoding)
+
+	header := req.Header.Get(headerAcceptEncoding)
 	gi := strings.Index(header, encodingGzip)
 	zi := strings.Index(header, encodingDeflate)
 	// use in order of appearance
@@ -148,13 +162,13 @@ func (c *compressionResponseWriter) compressorClosed() bool {
 }
 
 // RestfulWithCompression wraps WithCompression to be compatible with go-restful
-func RestfulWithCompression(f restful.RouteFunction) restful.RouteFunction {
+func RestfulWithCompression(f restful.RouteFunction, contextMapper request.RequestContextMapper) restful.RouteFunction {
 	return restful.RouteFunction(func(request *restful.Request, response *restful.Response) {
 		handler := WithCompression(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			response.ResponseWriter = w
 			request.Request = req
 			f(request, response)
-		}))
+		}), contextMapper)
 		handler.ServeHTTP(response.ResponseWriter, request.Request)
 	})
 }

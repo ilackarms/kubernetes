@@ -574,7 +574,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				handler = restfulGetResource(getter, exporter, reqScope)
 			}
 			handler = metrics.InstrumentRouteFunc(action.Verb, resource, subresource, handler)
-			handler = genericfilters.RestfulWithCompression(handler)
+			handler = genericfilters.RestfulWithCompression(handler, a.group.Context)
 			doc := "read the specified " + kind
 			if hasSubresource {
 				doc = "read " + subresource + " of the specified " + kind
@@ -604,7 +604,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				doc = "list " + subresource + " of objects of kind " + kind
 			}
 			handler := metrics.InstrumentRouteFunc(action.Verb, resource, subresource, restfulListResource(lister, watcher, reqScope, false, a.minRequestTimeout))
-			handler = genericfilters.RestfulWithCompression(handler)
+			handler = genericfilters.RestfulWithCompression(handler, a.group.Context)
 			route := ws.GET(action.Path).To(handler).
 				Doc(doc).
 				Param(ws.QueryParameter("pretty", "If 'true', then the output is pretty printed.")).
